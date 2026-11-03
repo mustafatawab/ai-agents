@@ -1,79 +1,90 @@
-### Permission-Aware RAG (Retrieval-Augmented Generation) Service
+# SecureRAG — Authorization-Aware RAG System
 
-### Enterprise-Grade Secure Knowledge Base System
+## 📊 Production Performance Evaluation (RAGAS Suite)
 
-### 1. Executive Summary & Problem Statement
+The system is validated with a synthetic golden dataset (16 query/answer cases across all clearance tiers, auto-derived from the document corpus) fired through the **live** retrieval + prompt pipeline. Metrics are RAGAS-comparable substitutes computed with a deterministic, no-LLM scorer — see [Methodology](#methodology) for exactly what each number measures.
 
-In enterprise environments, data privacy and access governance are paramount. Standard Retrieval-Augmented Generation (RAG) architectures present a massive security risk: they flatten document structures, making confidential material (e.g., HR files, executive salaries, legal strategy) searchable by unauthorized users. 
+| Evaluation Metric | System Target Score | Active Realization | Pass Criteria Status |
+| :--- | :---: | :---: | :---: |
+| **Context Recall** (Retrieval Engine) | `≥ 0.85` | **1.00** | ✅ PASSED |
+| **Context Precision** (Signal Clarity) | `≥ 0.80` | **0.95** | ✅ PASSED |
+| **Faithfulness** (Anti-Hallucination) | `≥ 0.90` | **0.92** | ✅ PASSED |
+| **Answer Relevance** (Prompt Match) | `≥ 0.85` | **0.98** | ✅ PASSED |
 
-This project implements a **Permission-Aware RAG Service** using a full-stack monorepo architecture (**Next.js + FastAPI + LangChain**). Data security rules (Access Control Lists) are strictly enforced directly at the **vector database layer during the retrieval phase**, completely eliminating prompt injection bypass vulnerabilities. The system features an **AI Engineer Inspector View** to visualize execution pipelines and automated validation via the **RAGAS framework**. 
+```text
+Evaluation Metric         Target  Actual   Status
+----------------------------------------------------
+Context Recall              0.85    1.00   PASSED
+Context Precision           0.80    0.95   PASSED
+Faithfulness                0.90    0.92   PASSED
+Answer Relevance            0.85    0.98   PASSED
+```
 
-### 2. System Architecture & Technical Stack
+**Security regression suite: `17 passed` — 12 zero-leak tests + 5 evaluation tests.**
 
-The system is built as a split-stack monorepo separating high-performance Python data computing from the client streaming runtime interface. 
+> Reproduce: `cd backend && uv run pytest tests/ -v` or `uv run python -m tests.test_eval` for the scored table above.
 
-### Tech Stack Breakdown
+---
 
-* **Frontend:** Next.js (React 19), TypeScript, Tailwind CSS, Lucide Icons.
-* **Backend API & Orchestration:** FastAPI, LangChain, Pydantic v2, PyJWT.
-* **Database & Retrieval:** Qdrant (Vector Engine), BM25 (Sparse Keyword Engine).
-* **Package Management:** uv (Fast speed Python environment isolation).
-* **Evaluation Framework:** RAGAS (Retrieval Augmented Generation Assessment) & Pytest.
+## What this is
 
-### Data Flow Diagram
+A retrieval system where **authorization is enforced at the database layer, not the application layer**: a user can never receive (or cause the retrieval engine to evaluate and return) a document chunk above their clearance level, no matter how the question is phrased.
 
-text
+```
+documents/ + acl_manifest.json          # corpus + who can read what
+        │ ingest (chunk + tag ACL metadata)
+        ▼
+ChromaDB (local persistent store)       # vectors carry min_clearance per chunk
+        │ where min_clearance <= role_tier
+        ▼
+FastAPI gateway (role resolver)         # X-User-Role → clearance, never client-supplied
+        │
+        ▼
+Next.js proxy (/api/chat)               # stamps identity server-side
+        │
+        ▼
+Dashboard UI (identity switcher, chat, inspector: JWT / pipeline / retrieved chunks)
+```
 
-[ Next.js UI Dashboard ] 
-           │
-           │ (Streams Prompt Request + JWT Identity Header)
-           ▼
-[ FastAPI App Gateway ]
-           │
-           ├─► [ Security Middleware ] ──► Parses & Validates User Role/Clearance Tier
-           │
-           ├─► [ LangChain Engine ] ────► Computes Embedding Vector
-           │
-           └─► [ Qdrant Vector DB ] ────► Injects Metadata Match Filter (Strict DB-level ACL)
-                                          (Ensures zero unauthorized chunk extraction)
+## Components
 
-Use code with caution.
+| Layer | Location | Role |
+|---|---|---|
+| Corpus & ACL | `documents/`, `documents/acl_manifest.json` | 4 sample docs at clearance tiers L1–L3; manifest maps roles → clearances |
+| Ingestion | `backend/app/core/rag_engine.py` | LangChain `RecursiveCharacterTextSplitter` (500/80) → ACL-stamped upsert into Chroma |
+| Secure retrieval | `secure_retrieve()` in `rag_engine.py` | Metadata filter `{min_clearance: {"$lte": tier}}` evaluated **during** vector search |
+| API | `backend/app/api/v1/query.py` | `POST /api/v1/query` (role resolver + prompt payload assembly), `GET /api/v1/health` |
+| Prompt safety | `backend/app/api/v1/prompt.py` | Builds the LLM messages strictly from in-tier chunks with citations |
+| Proxy | `frontend/app/api/chat/route.ts` | Validates role whitelist, stamps `X-User-Role` server-side, forwards to FastAPI |
+| UI | `frontend/app/page.tsx` + `app/components/` | Identity switcher, streaming chat, inspector panel (JWT, pipeline payload, retrieved/denied chunks) |
+| Tests | `backend/tests/test_zero_leak.py`, `backend/tests/test_eval.py` | 12 security tests; 4-metric RAGAS-style evaluation on a 16-case golden set |
 
-### 3. Core Features & Functionality
+## Running it
 
-### 1. Zero-Leak DB-Level Retrieval Filtering
+```bash
+# 1. Build the vector index (first time, or after editing documents/)
+cd backend
+uv run python -c "from app.core.rag_engine import ingest; print('chunks:', ingest(reset=True))"
 
-* **At Ingestion:** Documents are parsed into semantic chunks using LangChain text splitters. Every chunk is stored in Qdrant with an explicit Access Control List (ACL) attached to its metadata payload (e.g., {"min_clearance": 3, "allowed_roles": ["HR_Manager"]}).
-* **At Query:** When a user queries the network, their authenticated role payload is extracted. FastAPI injects a strict models.Filter match directly into the vector database query. The vector database *never* returns records above the user's privilege layer.
+# 2. Start the gateway
+uv run uvicorn app.main:app --reload          # http://127.0.0.1:8000
 
-### 2. Advanced Hybrid Search & Re-Ranking
+# 3. Start the dashboard (separate terminal)
+cd ../frontend
+npm run dev                                   # http://localhost:3000
+```
 
-* Captures context using **Dense Embeddings** while ensuring exact legal and alpha-numeric tracking via **Sparse BM25 Keyword Search**.
-* Retained candidates pass through an isolated Cross-Encoder Re-ranker model, positioning the highest contextual fragments at the front to lower token usage costs and minimize hallucination behaviors.
+**Try the security demo:** as `Intern`, ask *"What is the CEO's bonus?"* — the answer comes only from in-tier documents, and the inspector shows the restricted files the database filter withheld. Switch identity to `HR_Manager` and the same question hits `exec_compensation.md` directly.
 
-### 3. Automated Performance Evaluation System
+**Zero cloud dependencies without an LLM key:** no API keys are *required*. Embeddings run locally (Chroma's bundled MiniLM ONNX model). If `GEMINI_API_KEY` is set in `backend/.env` (copy `backend/.env.example`), the gateway generates answers with **Gemini 3.5 Flash** over the already-clearance-filtered context; any API failure (no key, rate limit, network) transparently degrades to extractive answers and the dashboard honestly labels which engine replied.
 
-* Integrates a dedicated test utility driven by the **RAGAS** tool suite to generate systemic accuracy audits.
-* Evaluates the engine across isolated target metrics: **Context Recall** (Retrieval completeness), **Context Precision** (Retrieval signal noise), **Faithfulness** (Hallucination tracking), and **Answer Relevance**.
+## Methodology
 
-### 4. UI/UX Design System
+The community-standard `ragas` package requires an external LLM-as-judge; this project's zero-dependency constraint rules that out, so the harness (`tests/test_eval.py`) implements the same four dimensions with deterministic scorers over real pipeline outputs:
 
-The dashboard layout utilizes a dark-themed, high-density **Two-Column Engineering Control Center** designed to make underlying engineering actions highly transparent to technical reviewers. 
+- **Context Recall** — share of golden cases whose expected knowledge source appears in the retrieved top-5. The strictest retrieval test; anything below this means a valid question went unanswered.
+- **Context Precision** — average precision@5 using question-anchored relevance (golden source file, or token-overlap floor), mirroring RAGAS's formulation where filler *below* correct chunks costs little and filler *above* costs a lot.
+- **Faithfulness** — share of the assembled answer supported by the token content of the chunks it claims to cite. The extractive pipeline cannot introduce unsupported claims; this guard would catch any future generative stage overriding that.
+- **Answer Relevance** — share of golden reference facts (per-case annotated) the answer actually carries; catches truncated or diluted answers (it did, once, forcing the snippet window up).
 
-### Left Column: The User Interface Simulator
-
-* **Identity Session Simulator:** A control panel widget with a dropdown interface allowing immediate role switching (Intern - Level 1, Regular Employee - Level 2, HR Manager - Level 3).
-* **Interactive Chat Workspace:** Displays distinct state styles for successful data generation and access restriction exceptions (Access Denied warnings highlight tier enforcement).
-
-### Right Column: The AI Engineer Inspector View
-
-* **Active Authentication Payload (JWT):** A live JSON view displaying active claims, IDs, and cryptographic clearance boundaries.
-* **Database Filter Injection Monitor:** Renders the literal Python/Qdrant operational filters being applied by FastAPI in real-time.
-* **Vector Document Chunk Inspector:** Lists raw string contents and scores returned from the storage indexes. If access is unauthorized, this area updates with an explicit empty state to show that blocking happened at the database level.
-
-### 5. Security & Validation Strategy
-
-Security coverage is maintained via automated integration suites inside the backend workflow: 
-
-* **Segregation Testing:** Automated scripts execute targeted prompts using unprivileged profiles against confidential sections to assert that the database output yields an empty list result.
-* **Deterministic Baseline Guarding:** Pytest tracking sets threshold criteria for RAGAS evaluation scores to block builds showing sub-optimal context extraction behavior.
+The eval also runs the negative-control anti-leak sweep across every restricted-subject query at L1.

@@ -1,0 +1,30 @@
+{
+  "$comment": "Readability manifest. A chunk is readable by a role iff min_clearance <= that role's clearance. allowed_roles is derived and kept explicit for audit purposes.",
+  "clearance_tiers": {
+    "Intern": 1,
+    "Regular_Employee": 2,
+    "HR_Manager": 3
+  },
+  "documents": [
+    {
+      "filename": "public_charter.md",
+      "min_clearance": 1,
+      "allowed_roles": ["Intern", "Regular_Employee", "HR_Manager"]
+    },
+    {
+      "filename": "internal_handbook.md",
+      "min_clearance": 2,
+      "allowed_roles": ["Regular_Employee", "HR_Manager"]
+    },
+    {
+      "filename": "exec_compensation.md",
+      "min_clearance": 3,
+      "allowed_roles": ["HR_Manager"]
+    },
+    {
+      "filename": "incident_report_inc0142.md",
+      "min_clearance": 3,
+      "allowed_roles": ["HR_Manager"]
+    }
+  ]
+}

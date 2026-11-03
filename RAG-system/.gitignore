@@ -1,0 +1,4 @@
+
+# local vector store
+backend/.chroma/
+backend/.pytest_cache/

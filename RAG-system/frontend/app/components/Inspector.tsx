@@ -177,9 +177,7 @@ function PipelineTab({ trace }: { trace: PipelineTrace | null }) {
         {[
           ["query", `"${trace.query.length > 30 ? trace.query.slice(0, 30) + "…" : trace.query}"`],
           ["collection", trace.collection],
-          ["embed", `${trace.latency.embed}ms`],
-          ["vector search", `${trace.latency.search}ms`],
-          ["rerank", `${trace.latency.rank}ms`],
+          ["retrieval", `${trace.latency.search}ms`],
           ["chunks returned", String(trace.returnedCount)],
           ["chunks rejected", String(trace.rejectedCount)],
           ["gated at", "the database layer"],
