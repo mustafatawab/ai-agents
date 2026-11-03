@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+:root {
+  --porcelain: #f5f7fa;
+  --surface: #ffffff;
+  --ink: #1a2733;
+  --ink-2: #56707f;
+  --ink-3: #8ba0ae;
+  --steel: #dfe6ec;
+  --steel-2: #c9d5de;
+  --ocean: #0e7c8c;
+  --ocean-deep: #0a5f6d;
+  --ocean-fog: #e3f2f4;
+  --amber: #b7791f;
+  --vault: #0e141b;
+  --vault-panel: #131c25;
+  --vault-edge: #233039;
+  --vault-text: #d5e2ea;
+  --vault-mist: #7d93a1;
+  --deny: #c24438;
+  --deny-fog: #fbeeed;
+  --live: #16a34a;
+}
+
+@theme inline {
+  --color-porcelain: var(--porcelain);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-steel: var(--steel);
+  --color-steel-2: var(--steel-2);
+  --color-ocean: var(--ocean);
+  --color-ocean-deep: var(--ocean-deep);
+  --color-ocean-fog: var(--ocean-fog);
+  --color-amber: var(--amber);
+  --color-vault: var(--vault);
+  --color-vault-panel: var(--vault-panel);
+  --color-vault-edge: var(--vault-edge);
+  --color-vault-text: var(--vault-text);
+  --color-vault-mist: var(--vault-mist);
+  --color-deny: var(--deny);
+  --color-deny-fog: var(--deny-fog);
+  --color-live: var(--live);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--porcelain);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--ocean) 22%, transparent);
+}
+
+/* ---------- depth: one softened shadow scale, used sparingly ---------- */
+
+.lift-sm {
+  box-shadow:
+    0 1px 2px rgba(20, 32, 43, 0.05),
+    0 1px 1px rgba(20, 32, 43, 0.03);
+}
+
+.lift-md {
+  box-shadow:
+    0 2px 6px rgba(20, 32, 43, 0.06),
+    0 12px 32px -12px rgba(20, 32, 43, 0.12);
+}
+
+/* ---------- machine side ---------- */
+
+.vault-grid {
+  background-image:
+    linear-gradient(rgba(36, 49, 59, 0.45) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(36, 49, 59, 0.45) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+/* ---------- state: denial ---------- */
+
+.deny-shell {
+  background: linear-gradient(var(--deny-fog), var(--deny-fog));
+  border: 1px solid color-mix(in srgb, var(--deny) 35%, transparent);
+}
+
+.deny-chip {
+  background: color-mix(in srgb, var(--deny) 10%, #fff);
+  color: var(--deny);
+}
+
+@keyframes deny-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.deny-anim {
+  animation: deny-card-in 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* ---------- streaming caret ---------- */
+
+@keyframes caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.caret::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  background: var(--ocean);
+  animation: caret 0.9s steps(2) infinite;
+}
+
+/* ---------- message entrance: answers the user's send ---------- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  animation: rise 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret,
+  .deny-anim,
+  .rise {
+    animation: none;
+  }
+}
